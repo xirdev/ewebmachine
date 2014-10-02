@@ -23,7 +23,7 @@ defmodule Ewebmachine do
         @ctx nil
         unquote(wm_wrap(code))
         def ping(rq,s), do: {:pong,rq,s}
-        def init([]), do: {unquote(Mix.env==:test && {:trace,:application.get_env(:ewebmachine,:trace_dir,'/tmp')}||:ok),@ctx||[]}
+        def init([]), do: {unquote({:trace,:application.get_env(:ewebmachine,:trace_dir,'/tmp')}||:ok),@ctx||[]}
         defp wrap_reponse({:dictstate,r,newstate},rq,state), do: {r,rq,Keyword.merge(state,newstate)}
         defp wrap_reponse({_,_,_}=tuple,_,_), do: tuple
         defp wrap_reponse(r,rq,state), do: {r,rq,state}
@@ -66,11 +66,12 @@ defmodule Ewebmachine do
     def start_link(conf), do: :supervisor.start_link(__MODULE__,conf)
     def name_of(conf), do: :"wm_#{inspect conf[:ip]}_#{conf[:port]}"
     def init(conf) do
-      debug_route = unquote( if Mix.env==:test do 
-          quote do [{['debug',:*],:wmtrace_resource,[{:trace_dir,:application.get_env(:ewebmachine,:trace_dir,'/tmp')}]}] end
-        else [] end)
+      debug_route = unquote( 
+        quote do [{['debug',:*],:wmtrace_resource,[{:trace_dir,:application.get_env(:ewebmachine,:trace_dir,'/tmp')}]}] end
+      )
       defaultconf = [dispatch_group: name_of(conf), name: name_of(conf), ip: '0.0.0.0',port: 8080, log_dir: 'priv/log', 
          dispatch: List.flatten(Enum.map(conf[:modules], fn m->m.routes end))++debug_route]
+      IO.inspect defaultconf |> Keyword.merge(Keyword.delete(conf,:modules))
       supervise([
         worker(:webmachine_mochiweb,[defaultconf |> Keyword.merge(Keyword.delete(conf,:modules))], function: :start)
       ], strategy: :one_for_one)
